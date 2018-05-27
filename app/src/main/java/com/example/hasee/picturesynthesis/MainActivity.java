@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -38,10 +39,8 @@ import org.opencv.imgproc.Imgproc;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Vector;
 
 import static org.opencv.core.CvType.CV_32FC3;
-import static org.opencv.imgproc.Imgproc.COLOR_BGR2GRAY;
 import static org.opencv.imgproc.Imgproc.cvtColor;
 
 
@@ -56,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private boolean isClickCamera;//是否是拍照裁剪
     private Button takeBtn;//打开相机按钮
     private Button albumBtn;//选择相册按钮
+    private Button hc;//合成的控件
     private ImageView iv1;
     private ImageView iv2;
     private ImageView iv3;//裁剪完毕
@@ -70,6 +70,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         iv1 = (ImageView)findViewById(R.id.iv_1);
         iv2 = (ImageView)findViewById(R.id.iv_2);
         iv3 = (ImageView)findViewById(R.id.iv_3);
@@ -83,9 +84,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         takeBtn = (Button) inflate.findViewById(R.id.takePhoto);
         cancel = (Button) inflate.findViewById(R.id.btn_cancel);
 
+        hc = (Button)findViewById(R.id.but_hc);
+
         albumBtn.setOnClickListener(this);
         takeBtn.setOnClickListener(this);
         cancel.setOnClickListener(this);
+
+        hc.setOnClickListener(this);
 
         dialog.setContentView(inflate);
         Window dialogWindow = dialog.getWindow();
@@ -110,8 +115,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
             case R.id.but_hc:
                 //合成
+                Log.d("233","jinqu");
+                bitmap1 =((BitmapDrawable) ((ImageView) iv1).getDrawable()).getBitmap();
+                bitmap2 = ((BitmapDrawable) ((ImageView) iv2).getDrawable()).getBitmap();
                 Bitmap bitmap3 = colortransfer(bitmap1,bitmap2);
                 iv3.setImageBitmap(bitmap3);
+                Log.d("233","emmmmm");
                 break;
 
         }
@@ -121,14 +130,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      * 两个图片的合成
      */
     private Bitmap colortransfer(Bitmap bitmap1,Bitmap bitmap2){
-        Bitmap resultmap = null;
+
+
         Mat src = new Mat();
         Utils.bitmapToMat(bitmap1,src);
+        Log.d("233",src.toString());
+        int cols = src.cols();
+        int rows = src.rows();
+        Log.d("233cols",cols+"");
+        Log.d("233rows",rows+"");
         Mat dst = new Mat();
         Utils.bitmapToMat(bitmap2,dst);
+        Log.d("233",dst.toString());
         Mat labsrc = new Mat();
         Mat labdst = new Mat();
         Mat result = new Mat();
+
 
         Mat result_lab = new Mat(src.rows(),src.cols(),CV_32FC3);
         // Mat binaryMat = new Mat(grayMat.height(),grayMat.width(),CvType.CV_8UC1);
@@ -141,10 +158,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         cvtColor(targetImg_32F, labdst, Imgproc.COLOR_BGR2Lab);
 
         //计算平均值
-        Vector<Double> srcmeans = new Vector<Double>(3);				//平均值
-        Vector<Double> srcstandards = new Vector<Double>(3);			//标准差
-        Vector<Double> targetmeans = new Vector<Double>(3);
-        Vector<Double> targetstandards = new Vector<Double>(3);
+        //Vector<Double> srcmeans = new Vector<Double>(3);				//平均值
+        double srcmeans[] = new double[3];
+       // Vector<Double> srcstandards = new Vector<Double>(3);			//标准差
+        double srcstandards[] = new double[3];
+       // Vector<Double> targetmeans = new Vector<Double>(3);
+        double targetmeans[] = new double[3];
+       // Vector<Double> targetstandards = new Vector<Double>(3);
+        double targetstandards[] = new double[3];
         //ctor<Float> tmp = new Vector<Float>(){0.f,0.f,0.f};
         int srcPixels = src.rows()*src.cols();
         int targetPixels = dst.rows()*dst.cols();
@@ -164,7 +185,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         for (int i=0;i<3;i++)
         {
-            srcmeans.set(i, sum[i] /srcPixels);
+            //srcmeans.set(i, sum[i] /srcPixels);
+            srcmeans[i] = sum[i] /srcPixels;
         }
         //计算目标图像的平均值
         for (int i = 0; i < 3; i++)
@@ -185,7 +207,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         for (int i=0;i<3;i++)
         {
-            targetmeans.set(i, sum[i] /targetPixels);
+            //targetmeans.set(i, sum[i] /targetPixels);
+            targetmeans[i] = sum[i] /targetPixels;
         }
 
         //计算源图像的标准差
@@ -197,14 +220,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             {
 //                Vec3f color = labsrc.at<Vec3f>(y, x);
                 double[] color = labsrc.get(y,x);
-                sum_variance[0] += (color[0] - srcmeans.get(0))*(color[0] - srcmeans.get(0));
-                sum_variance[1] += (color[1] - srcmeans.get(1))*(color[1] - srcmeans.get(1));
-                sum_variance[2] += (color[2] - srcmeans.get(2))*(color[2] - srcmeans.get(2));
+                sum_variance[0] += (color[0] - srcmeans[0])*(color[0] - srcmeans[0]);
+                sum_variance[1] += (color[1] - srcmeans[1])*(color[0] - srcmeans[1]);
+                sum_variance[2] += (color[2] - srcmeans[2])*(color[2] - srcmeans[2]);
             }
         }
-        srcstandards.set(0,Math.sqrt(sum_variance[0] / srcPixels));
-        srcstandards.set(1,Math.sqrt(sum_variance[1] / srcPixels));
-        srcstandards.set(2,Math.sqrt(sum_variance[2] / srcPixels));
+        //srcstandards.set(0,Math.sqrt(sum_variance[0] / srcPixels));
+        srcstandards[0] = Math.sqrt(sum_variance[0] / srcPixels);
+        srcstandards[1] = Math.sqrt(sum_variance[1] / srcPixels);
+        srcstandards[2] = Math.sqrt(sum_variance[2] / srcPixels);
+//        srcstandards.set(1,Math.sqrt(sum_variance[1] / srcPixels));
+//        srcstandards.set(2,Math.sqrt(sum_variance[2] / srcPixels));
 
         //计算目标图像的标准差
         for (int i = 0; i < 3; i++)
@@ -218,14 +244,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             {
 //                Vec3f color = labsrc.at<Vec3f>(y, x);
                 double[] color = labdst.get(y,x);
-                sum_variance[0] += (color[0] - targetmeans.get(0))*(color[0] - targetmeans.get(0));
-                sum_variance[1] += (color[1] - targetmeans.get(1))*(color[1] - targetmeans.get(1));
-                sum_variance[2] += (color[2] - targetmeans.get(2))*(color[2] - targetmeans.get(2));
+                sum_variance[0] += (color[0] - targetmeans[0])*(color[0] - targetmeans[0]);
+                sum_variance[1] += (color[1] - targetmeans[1])*(color[1] - targetmeans[1]);
+                sum_variance[2] += (color[2] - targetmeans[2])*(color[2] - targetmeans[2]);
             }
         }
-        targetstandards.set(0,Math.sqrt(sum_variance[0] / targetPixels));
-        targetstandards.set(1,Math.sqrt(sum_variance[1] / targetPixels));
-        targetstandards.set(2,Math.sqrt(sum_variance[2] / targetPixels));
+        //targetstandards.set(0,Math.sqrt(sum_variance[0] / targetPixels));
+        targetstandards[0] = Math.sqrt(sum_variance[0] / targetPixels);
+        targetstandards[1] = Math.sqrt(sum_variance[1] / targetPixels);
+        targetstandards[2] = Math.sqrt(sum_variance[2] / targetPixels);
+//        targetstandards.set(1,Math.sqrt(sum_variance[1] / targetPixels));
+//        targetstandards.set(2,Math.sqrt(sum_variance[2] / targetPixels));
 
         int width = src.cols();
         int height = src.rows();
@@ -233,7 +262,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         double deta_rate[] = new double[3];			//标准差比值
         for (int k = 0; k < 3; k++)
         {
-            deta_rate[k] = targetstandards.get(k) / srcstandards.get(k);
+            deta_rate[k] = targetstandards[k] / srcstandards[k];
         }
 
         for(int y =0;y<height;y++)
@@ -244,18 +273,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 double value[] = new double[3];
                 for(int  channel = 0; channel < 3; channel++ )
                 {
-                    value[channel] = deta_rate[channel]*(color[channel] - srcmeans.get(channel)) + targetmeans.get(channel);
+                    value[channel] = deta_rate[channel]*(color[channel] - srcmeans[channel]) + targetmeans[channel];
                     result_lab.put(y,x,value);
                 }
             }
         }
-        Imgproc.cvtColor(result_lab,result,COLOR_BGR2GRAY,1);
-        Utils.matToBitmap(result,resultmap);
+        Imgproc.cvtColor(result_lab,result,Imgproc.COLOR_Lab2LRGB,1);
+        Bitmap resultmap = Bitmap.createBitmap(result.cols(),result.rows(),Bitmap.Config.ARGB_8888 );
+        Utils.matToBitmap(result,resultmap,false);
         return resultmap;
     }
 
     /***
-     * opencv库 加载并初始化回调的函数
+            * opencv库 加载并初始化回调的函数
      */
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -315,10 +345,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
                     if(iv1.getDrawable()==null){
                         iv1.setImageBitmap(bitmap);
-                        bitmap1 = bitmap;
                     }else {
                         iv2.setImageBitmap(bitmap);
-                        bitmap2 = bitmap;
                     }
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -328,27 +356,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void openCamera() {
-        // 创建File对象，用于存储拍照后的图片
-//        File outputImage = new File(getExternalCacheDir(), "output_image.jpg");
-//        try {
-//            if (outputImage.exists()) {
-//                outputImage.delete();
-//            }
-//            outputImage.createNewFile();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        if (Build.VERSION.SDK_INT < 24) {
-//            imageUri = Uri.fromFile(outputImage);
-//        } else {
-//            //Android 7.0系统开始 使用本地真实的Uri路径不安全,使用FileProvider封装共享Uri
-//            //参数二:fileprovider绝对路径 com.dyb.testcamerademo：项目包名
-//            imageUri = FileProvider.getUriForFile(MainActivity.this, "com.example.picturesynthesis.fileprovider", outputImage);
-//        }
-//        // 启动相机程序
-//        Intent intent = new Intent("android.media.action.IMAGE_CAPTURE");
-//        intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
-//        startActivityForResult(intent, TAKE_PHOTO);
+
         File outputImage = new File(getExternalCacheDir(),"output_image.jpg");
         try{
             if(outputImage.exists()){
